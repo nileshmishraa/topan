@@ -3,18 +3,27 @@ package com.topan.web;
 import com.topan.entity.Employee;
 import com.topan.service.EmployeeService;
 import com.topan.service.impl.UploadingServiceImpl;
+import com.topan.util.CustomMultipartFile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
@@ -115,4 +124,80 @@ public class EmployeeControllerTest {
         // Verify the response
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
+
+    @Test
+    public void testUploadGoodFileWith5000Entries() throws IOException {
+        // Prepare a mock MultipartFile object with a good file containing 5000 entries
+        MultipartFile file = new CustomMultipartFile("good_file.csv", "good_file","text/csv", generateCSVContent(5000).readAllBytes()) {
+        };
+
+        // Mock the uploadingService to return a success response
+        Mockito.when(uploadingService.upload(file)).thenReturn(ResponseEntity.ok("File uploaded successfully."));
+
+        // Invoke the uploadEmployees method
+        ResponseEntity<String> response = employeeController.uploadEmployees(file);
+
+        // Assert the response
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("File uploaded successfully.", response.getBody());
+    }
+
+    private InputStream generateCSVContent(int numEntries) {
+        // Generate CSV content with the specified number of entries
+        StringBuilder content = new StringBuilder();
+        content.append("id,name,login,salary\n");
+        for (int i = 1; i <= numEntries; i++) {
+            content.append("e").append(String.format("%04d", i)).append(",John Doe,John,").append(i * 1000).append("\n");
+        }
+        return new ByteArrayInputStream(content.toString().getBytes());
+    }
+
+    @Test
+    public void testConcurrentUploadsOfFilesWith5000Entries() throws InterruptedException {
+        MultipartFile file1 = new MockMultipartFile("file", "file1.csv", "text/csv", "CSV content 1".getBytes());
+        MultipartFile file2 = new MockMultipartFile("file", "file2.csv", "text/csv", "CSV content 2".getBytes());
+
+        Mockito.when(uploadingService.upload(Mockito.any(MultipartFile.class))).thenReturn(ResponseEntity.ok("File uploaded successfully."));
+
+        // Create an ExecutorService with two threads
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+        // Submit two tasks to upload the files concurrently
+        executorService.submit(() -> employeeController.uploadEmployees(file1));
+        executorService.submit(() -> employeeController.uploadEmployees(file2));
+
+        // Shutdown the ExecutorService and wait for the tasks to complete
+        executorService.shutdown();
+        executorService.awaitTermination(5, TimeUnit.SECONDS);
+
+        // Verify that both uploads completed successfully
+        Mockito.verify(uploadingService, Mockito.times(2)).upload(Mockito.any(MultipartFile.class));
+    }
+
+    @Test
+    public void testConcurrentUploadsOfFilesWith5000Entries_1() throws InterruptedException {
+        CustomMultipartFile file1 = createCustomMultipartFile("file1.csv", "CSV content 1");
+        CustomMultipartFile file2 = createCustomMultipartFile("file2.csv", "CSV content 2");
+
+        Mockito.when(uploadingService.upload(Mockito.any(MultipartFile.class))).thenReturn(ResponseEntity.ok("File uploaded successfully."));
+
+        // Create an ExecutorService with two threads
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+        // Submit two tasks to upload the files concurrently
+        executorService.submit(() -> employeeController.uploadEmployees(file1));
+        executorService.submit(() -> employeeController.uploadEmployees(file2));
+
+        // Shutdown the ExecutorService and wait for the tasks to complete
+        executorService.shutdown();
+        executorService.awaitTermination(5, TimeUnit.SECONDS);
+
+        // Verify that both uploads completed successfully
+        Mockito.verify(uploadingService, Mockito.times(2)).upload(Mockito.any(MultipartFile.class));
+    }
+
+    private CustomMultipartFile createCustomMultipartFile(String filename, String content) {
+        return new CustomMultipartFile(filename, filename,"text/csv",content.getBytes());
+    }
+
 }
