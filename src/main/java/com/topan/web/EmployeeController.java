@@ -42,6 +42,15 @@ public class EmployeeController {
         else
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
+
+    public ResponseEntity<Employee> getEmployeeById(@PathVariable Long id) {
+        return employeeService.getEmployeeById(String.valueOf(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Employee> updateEmployee(@PathVariable Long id, @RequestBody Employee updatedEmployee) {
+        return employeeService.updateEmployee(id,updatedEmployee);
+    }
 }
 
 

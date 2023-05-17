@@ -8,12 +8,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))
@@ -56,6 +58,30 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     public void saveEmployee(Employee employees) {
         employeeRepository.save(employees);
+    }
+
+    /**
+     * @param id unique Id of emp
+     * @return Employee object
+     */
+    @Override
+    public ResponseEntity<Employee> getEmployeeById(String id) {
+        return employeeRepository.findById(id)
+                .map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    }
+
+    @Override
+    public ResponseEntity<Employee> updateEmployee(Long id, Employee updatedEmployee) {
+        Optional<Employee> optionalEmployee = employeeRepository.findById(String.valueOf(id));
+        if (optionalEmployee.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Employee existingEmployee = optionalEmployee.get();
+        existingEmployee.setName(updatedEmployee.getName());
+        existingEmployee.setLogin(updatedEmployee.getLogin());
+        existingEmployee.setSalary(updatedEmployee.getSalary());
+        Employee savedEmployee = employeeRepository.save(existingEmployee);
+        return ResponseEntity.ok(savedEmployee);
     }
 
     @Override
