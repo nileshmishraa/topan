@@ -5,8 +5,12 @@ import com.topan.repository.EmployeeRepository;
 import com.topan.service.EmployeeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -57,6 +61,26 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     public Employee findByEmployeeId(String employeeId) {
         return employeeRepository.findById(employeeId).orElseThrow(() -> new NoSuchElementException("Employee not found"));
+    }
+
+    @Override
+    public List<Employee> getEmployees(BigDecimal minSalary, BigDecimal maxSalary, int offset, int limit, String sort) {
+        Sort.Direction direction = Sort.Direction.ASC;
+        String sortField;
+
+        if (sort.startsWith("-")) {
+            direction = Sort.Direction.DESC;
+            sortField = sort.substring(1);
+        } else if (sort.startsWith("+")) {
+            sortField = sort.substring(1);
+        } else {
+            sortField = sort;
+        }
+
+        Sort sorting = Sort.by(direction, sortField);
+        Pageable pageable = PageRequest.of(offset, limit, sorting);
+
+        return employeeRepository.findBySalaryBetween(minSalary, maxSalary, pageable);
     }
 }
 
